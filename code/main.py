@@ -50,7 +50,7 @@ if __name__ == "__main__":
         else:
             print(f"metrics/avg/test/{metric}: {avg}")
 
-    # Promedio global de predicciones
+    # Average predictions
     for i in range(1, len(run_preds_list)):
         run_preds_list[i] = run_preds_list[i].sort_values(by="gene")
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         neptune_run["predictions/avg"].upload("avg_probs.csv")
         neptune_run.stop()
 
-    # Limpieza de archivos temporales
+    # Cleanup temporary files
     for f in ["preds_temp.csv", "avg_probs.csv"]:
         if os.path.exists(f):
             os.remove(f)

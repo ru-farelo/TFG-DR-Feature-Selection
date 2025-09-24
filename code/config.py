@@ -32,7 +32,7 @@ def read_config() -> argparse.Namespace:
     parser.add_argument("--fast_mrmr_k", type=parse_percentage, default=0, 
                         help="Number of features to select with Fast MRMR (use '5%' for percentage)")    
 
-    # Bagging para selección de características
+    # Bagging disjoint
     parser.add_argument("--bagging", action="store_true", help="Activar selección de características con bagging")
     parser.add_argument("--bagging_n", type=parse_percentage, default=0.0, 
                         help="Porcentaje de características por subconjunto de bagging (ej. '5%')")

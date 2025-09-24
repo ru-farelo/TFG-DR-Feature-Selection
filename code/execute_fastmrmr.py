@@ -8,7 +8,7 @@ CV_INNER = 5
 
 def execute_fast_mrmr_pipeline(x_train, y_train, x_test, classifier, random_state, fast_mrmr_k):
     """
-    Ejecuta toda la pipeline de selección de características con Fast-MRMR
+    Execute the entire feature selection pipeline with Fast-MRMR
     """
     csv_path = "./utils/data-reader/data_xtrain_temporaly/x_train.csv"
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -27,7 +27,6 @@ def execute_fast_mrmr_pipeline(x_train, y_train, x_test, classifier, random_stat
     if os.path.exists(mrmr_path):
         os.remove(mrmr_path)
 
-    #print(" Ejecutando binario Fast-MRMR...")
     subprocess.run("make clean", shell=True, capture_output=True, text=True, cwd="utils/data-reader")
     subprocess.run("make all", shell=True, capture_output=True, text=True, cwd="utils/data-reader")
     time.sleep(1)
@@ -35,14 +34,11 @@ def execute_fast_mrmr_pipeline(x_train, y_train, x_test, classifier, random_stat
     time.sleep(1)
     subprocess.run("make clean", shell=True, capture_output=True, text=True, cwd="src_c")
     subprocess.run("make all", shell=True, capture_output=True, text=True, cwd="src_c")
-    #print(" Fast-MRMR ejecutado")
+
     result = subprocess.run(f"./fast-mrmr -a {fast_mrmr_k}", shell=True, capture_output=True, text=True, cwd="src_c")
-    #print("Fast-MRMR output:", result.stdout)
 
     selected_features_indices = [int(i) - 1 for i in result.stdout.strip().rstrip(',').split(',') if i.strip().isdigit()]
     selected_features = x_train.columns[selected_features_indices]
-    #print("selected_features", selected_features)
-    #print("Número de columnas en x_train después de Fast-MRMR:", len(selected_features))
 
     x_train = x_train.loc[:, selected_features]
     x_test = x_test.loc[:, selected_features]

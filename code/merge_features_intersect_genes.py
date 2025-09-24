@@ -8,16 +8,16 @@ def intersect_genes_union_features(file_paths, output_dir="../data/"):
         print(" Se requieren al menos dos archivos CSV.")
         return
 
-    # Leer todos los DataFrames
+    # Read the files and capture the base names
     dfs = [pd.read_csv(path) for path in file_paths]
     base_names = [os.path.splitext(os.path.basename(f))[0] for f in file_paths]
 
-    # Validación básica
+    # Basic validation
     for i, df in enumerate(dfs):
         if 'Gene' not in df.columns:
             raise ValueError(f" El archivo '{file_paths[i]}' no contiene columna 'Gene'.")
 
-    # Intersección de genes
+    # Intersect genes
     gene_sets = [set(df['Gene']) for df in dfs]
     common_genes = reduce(lambda a, b: a & b, gene_sets)
 
@@ -25,7 +25,7 @@ def intersect_genes_union_features(file_paths, output_dir="../data/"):
         print(" No hay genes comunes entre los archivos.")
         return
 
-    # Filtrar DataFrames por genes comunes y eliminar columnas duplicadas de 'Class'
+    # Filter DataFrames by common genes and remove duplicate 'Class' columns
     filtered_dfs = []
     for df in dfs:
         df = df[df['Gene'].isin(common_genes)].copy()
@@ -34,19 +34,19 @@ def intersect_genes_union_features(file_paths, output_dir="../data/"):
             df.drop(columns=class_cols[:-1], inplace=True)
         filtered_dfs.append(df)
 
-    # Hacer merge progresivo por 'Gene'
+    # Make progressive merge by 'Gene'
     merged_df = filtered_dfs[0]
     for df in filtered_dfs[1:]:
-        # Evitar duplicación de columnas 'Class' en el merge
+        # Avoid duplication of 'Class' columns in the merge
         df_renamed = df.drop(columns=[col for col in df.columns if col == 'Class' and col in merged_df.columns])
         merged_df = pd.merge(merged_df, df_renamed, on='Gene', how='inner')
 
-    # Asegurar que solo haya una columna 'Class'
+    # Ensure only one 'Class' column exists
     if 'Class' in merged_df.columns:
         class_col = merged_df.pop('Class')
         merged_df['Class'] = class_col
 
-    # Guardar resultado
+    # Save result
     os.makedirs(output_dir, exist_ok=True)
     output_filename = "IntersectGenes_UnionFeatures_" + "_".join(base_names) + ".csv"
     output_path = os.path.join(output_dir, output_filename)
@@ -58,7 +58,7 @@ def intersect_genes_union_features(file_paths, output_dir="../data/"):
 
     return output_path
 
-# Ejecutable desde terminal
+# Usage example:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Intersect genes and merge features from multiple CSVs.")
     parser.add_argument("csvs", nargs="+", help="Archivos CSV a procesar.")

@@ -1,25 +1,25 @@
 import pandas as pd
 from sklearn.preprocessing import KBinsDiscretizer
 
-# Cargar tu archivo
+# Load the dataset
 df = pd.read_csv("../data/CoexpressionDataset.csv")
 
-# Separar las columnas
-col_id = df.columns[0]       # Primera columna (ID)
-col_label = df.columns[-1]   # Última columna (label)
+# Separate the columns
+col_id = df.columns[0]       # First column (ID)
+col_label = df.columns[-1]   # Last column (label)
 
-# Features a discretizar (todas menos la primera y la última)
+# Features to discretize (all except the first and last)
 features = df.columns[1:-1]
 
-# Discretizador: 10 bins, 'ordinal' para mantenerlos como ints, 'uniform' o 'quantile' según prefieras
+# Discretizer: 10 bins, 'ordinal' to keep them as ints, 'uniform' or 'quantile' depending on your preference
 kbin = KBinsDiscretizer(n_bins=10, encode='ordinal', strategy='quantile')
 X_binned = kbin.fit_transform(df[features])
 
-# Crear el nuevo dataframe discretizado
+# Create the new discretized dataframe
 df_binned = df.copy()
-df_binned.loc[:, features] = X_binned.astype(int)  # Solo sobreescribe las features
+df_binned.loc[:, features] = X_binned.astype(int)  # Only overwrite the features
 
-# Guardar el nuevo archivo
+# Save the new file
 df_binned.to_csv("../data/CoexpressionDataset_binned_normal2.csv", index=False)
 
 print("¡Listo! Archivo discretizado guardado como '.")

@@ -41,14 +41,14 @@ uint getMaxRelevance(vector<double> classRelevances, uint classIndex) {
 	}
     if (newFeature == -1) {
         fprintf(stderr, "[ERROR] getMaxRelevance: no se encontró ninguna feature relevante (todas <= 0 o solo está la clase).\n");
-        exit(1); // Puedes cambiar esto por un return especial si quieres manejarlo arriba
+        exit(1);
     }
 	return newFeature;
 }
 
 options parseOptions(int argc, char*argv[]) {
 	options opts;
-	opts.classIndex = 0; // TODO: ESTO ESTABA A 0
+	opts.classIndex = 0; 
 	opts.selectedFeatures = 10;
 	opts.file = "../utils/data-reader/data_mrmr/x_train.mrmr";
 

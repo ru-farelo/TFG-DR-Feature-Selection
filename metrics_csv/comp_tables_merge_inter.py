@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import argparse
 import os
 
-# Mapeo de métricas a columnas reales
+# Mapping of metric names to dataframe columns
 COLUMN_MAP = {
     "F1-score": "f1",
     "G-Mean": "gmean",
@@ -14,7 +14,7 @@ COLUMN_MAP = {
     "Precision@10": "precision_at_10"
 }
 
-# Renombrar para mostrar en tabla con claridad
+# Rename configurations for clarity in the table
 def renombrar_config(nombre):
     if nombre == "InterGOPathDip_BRF":
         return "Union (GO+PathDip) - BRF"
@@ -106,11 +106,11 @@ def main():
 
     configs = []
 
-    # Unión
+    # Unión BRF y CAT
     configs.append((f"{args.union_name}_BRF", pd.read_csv(args.brf_union_features, sep=";")))
     configs.append((f"{args.union_name}_CAT", pd.read_csv(args.cat_union_features, sep=";")))
 
-    # Individuales BRF
+    # Individual
     for path in args.brf_single_features:
         name = os.path.splitext(os.path.basename(path))[0]
         configs.append((name, pd.read_csv(path, sep=";")))

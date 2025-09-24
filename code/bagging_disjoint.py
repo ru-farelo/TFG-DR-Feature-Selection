@@ -4,8 +4,9 @@ import pandas as pd
 
 def bagging_feature_selection_disjoint(x_train, x_test, n_groups=5, percentage=5.0, seed=42):
     """
-    Divide las columnas en n grupos disjuntos y de cada uno toma el porcentaje indicado de columnas, sin reemplazo.
-    Devuelve un nuevo DataFrame solo con las columnas seleccionadas.
+    Divide features into disjoint groups and select percentage from each group.
+    
+    Returns: (selected_x_train, selected_x_test)
     """
     np.random.seed(seed)
     total_features = x_train.shape[1]

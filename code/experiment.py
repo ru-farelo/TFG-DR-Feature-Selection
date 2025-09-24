@@ -27,7 +27,6 @@ def run_experiment(
 
     x, y, gene_names = load_data(dataset)
 
-    # Calcular valor absoluto de fast_mrmr_k
     fast_mrmr_k = fast_mrmr_percentage
 
     bagging_percentage = bagging_n if bagging else 0.0

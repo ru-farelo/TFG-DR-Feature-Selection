@@ -112,13 +112,13 @@ def main():
 
     fs_data = [procesar_archivo(nombre, ruta) for nombre, ruta in configs]
 
-    # Cargar todos los CSV necesarios
+    # Load dataframes to extract 100% selection rows
     df_fast_brf = pd.read_csv(args.fast_BRF, sep=";")
     df_fast_cat = pd.read_csv(args.fast_CAT, sep=";")
     df_fast_brf_pu = pd.read_csv(args.fast_BRF_PU, sep=";")
     df_fast_cat_pu = pd.read_csv(args.fast_CAT_PU, sep=";")
 
-    # Añadir las 4 filas de Sin Selección (100%)
+    # Add rows for 100% selection without feature selection
     sin_fast_brf = {"Configuración": "Sin Selección BRF(100%)"}
     sin_fast_brf.update(extraer_fila_100(df_fast_brf))
     fs_data.append(sin_fast_brf)

@@ -99,7 +99,7 @@ def train_a_model(
         print(f"   → Características tras BAGGING: {x_train_proc.shape[1]}")
         print(f"   → Nombres de las primeras 10 columnas: {list(x_train_proc.columns[:10])}")
 
-    # Fast MRMR con reintentos automáticos
+    # Fast MRMR with retries
     if fast_mrmr:
         if isinstance(fast_mrmr_k, float) and 0 < fast_mrmr_k < 100:
             n_features = int(x_train_proc.shape[1] * (fast_mrmr_k / 100))
@@ -109,7 +109,7 @@ def train_a_model(
             print(f" Fast-MRMR ACTIVADO (k={fast_mrmr_k} columnas tras bagging)")
             fast_mrmr_k = int(fast_mrmr_k)
 
-        # Reintenta Fast-MRMR si no selecciona ninguna feature
+        # Try Fast-MRMR up to max_fastmrmr_retries times
         for retry in range(max_fastmrmr_retries):
             seed_try = random_state + retry
             x_train_proc_tmp, x_test_proc_tmp = execute_fast_mrmr_pipeline(
@@ -128,11 +128,11 @@ def train_a_model(
             else:
                 print(f" [REINTENTO]: Fast-MRMR no seleccionó features (seed={seed_try}). Reintentando...")
         else:
-            # Si tras todos los reintentos sigue sin seleccionar nada
+            # If we exit the loop without a break, all retries failed
             print(" [AVISO]: Fast-MRMR no ha seleccionado ninguna feature tras varios intentos. No se puede entrenar el modelo en este fold.")
             print(" [DEBUG] Tamaño de x_train_proc:", x_train_proc_tmp.shape)
             print(" [DEBUG] Saliendo de train_a_model con array vacío.\n")
-            return np.zeros(len(x_test_proc))  # <--- Para no romper el pipeline
+            return np.zeros(len(x_test_proc))  
 
         print(f"   → Características tras FAST-MRMR: {x_train_proc.shape[1]}")
         print(f"   → Nombres de las primeras 10 columnas: {list(x_train_proc.columns[:10])}")
