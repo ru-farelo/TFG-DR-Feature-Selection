@@ -39,7 +39,6 @@ uint getMaxRelevance(vector<double> classRelevances, uint classIndex) {
 			newFeature = i;
 		}
 	}
-	  // CHEQUEO AÑADIDO
     if (newFeature == -1) {
         fprintf(stderr, "[ERROR] getMaxRelevance: no se encontró ninguna feature relevante (todas <= 0 o solo está la clase).\n");
         exit(1); // Puedes cambiar esto por un return especial si quieres manejarlo arriba

@@ -78,7 +78,7 @@ def train_a_model(
     bagging: bool = False,
     bagging_n: float = 0.0,
     bagging_groups: int = 5,
-    max_fastmrmr_retries: int = 8,   # <-- Añade un parámetro por si quieres controlar los reintentos
+    max_fastmrmr_retries: int = 8,  
 ):
     if isinstance(x_train, np.ndarray):
         x_train = pd.DataFrame(x_train)
@@ -90,9 +90,6 @@ def train_a_model(
     x_train_proc = x_train.copy()
     x_test_proc = x_test.copy()
 
-    #print("\n============== SELECCIÓN DE CARACTERÍSTICAS ==============")
-    #print(f" Número de características INICIAL: {x_train_proc.shape[1]}")
-    
     # Bagging disjunto
     if bagging:
         print(f" Bagging disjunto ACTIVADO (n_grupos={bagging_groups}, porcentaje={bagging_n}%)")

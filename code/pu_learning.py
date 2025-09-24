@@ -28,7 +28,7 @@ def select_reliable_negatives(
     assert 0 <= t <= 1, "t must be between 0 and 1"
     assert k > 0, "k must be greater than 0"
 
-    # ✅ Fix index misalignment
+    # Fix index misalignment
     x = x.reset_index(drop=True)
     if isinstance(y, (np.ndarray, list)):
         y = pd.Series(y)
