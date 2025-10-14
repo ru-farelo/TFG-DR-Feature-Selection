@@ -78,7 +78,8 @@ def train_a_model(
     bagging: bool = False,
     bagging_n: float = 0.0,
     bagging_groups: int = 5,
-    max_fastmrmr_retries: int = 8,  
+    max_fastmrmr_retries: int = 8,
+    return_importances: bool = False,  # NEW PARAMETER
 ):
     if isinstance(x_train, np.ndarray):
         x_train = pd.DataFrame(x_train)
@@ -169,4 +170,18 @@ def train_a_model(
         model.fit(x_train_final, y_train_final)
 
     probs = model.predict_proba(x_test_final)[:, 1]
+    
+    # Extraer importancias de características usando índice de Gini si se solicita
+    if return_importances:
+        if hasattr(model, 'feature_importances_'):
+            # Crear DataFrame con las importancias Gini
+            feature_importances = pd.DataFrame({
+                'feature': x_train_final.columns,
+                'gini_importance': model.feature_importances_
+            })
+            return probs, feature_importances
+        else:
+            print(f"Warning: {classifier} model doesn't support feature importances (try BRF, CAT, or XGB)")
+            return probs, None
+    
     return probs

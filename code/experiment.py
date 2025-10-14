@@ -6,7 +6,7 @@ import neptune
 from code.model_training import train_a_model
 from code.data_processing import load_data
 from code.hyperparameter_tuning import grid_search_hyperparams
-from code.neptune_utils import upload_preds_to_neptune
+from code.neptune_utils import upload_preds_to_neptune, upload_importances_to_neptune
 import code.metrics as metrics
 
 
@@ -21,7 +21,8 @@ def run_experiment(
     neptune_run: Union[neptune.Run, None] = None,
     bagging: bool = False,
     bagging_n: float = 0.0,
-    bagging_groups: int = 5
+    bagging_groups: int = 5,
+    extract_importances: bool = False,  # NEW PARAMETER
 ):
     random_state = int(random_state)
 
@@ -32,7 +33,7 @@ def run_experiment(
     bagging_percentage = bagging_n if bagging else 0.0
 
     outer_cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
-    experiment_preds, experiment_metrics = [], []
+    experiment_preds, experiment_metrics, experiment_importances = [], [], []
 
     for k, (train_idx, test_idx) in enumerate(outer_cv.split(x, y)):
         print(f"\n===== Fold {k} =====")
@@ -57,7 +58,7 @@ def run_experiment(
             neptune_run=neptune_run,
         )
 
-        pred_test = train_a_model(
+        result = train_a_model(
             x_train,
             y_train,
             x_test,
@@ -70,8 +71,17 @@ def run_experiment(
             fast_mrmr_k=fast_mrmr_k,
             bagging=bagging,
             bagging_n=bagging_percentage,
-            bagging_groups=bagging_groups
+            bagging_groups=bagging_groups,
+            return_importances=extract_importances,
         )
+        
+        if extract_importances:
+            pred_test, fold_importances = result
+            if fold_importances is not None:
+                fold_importances['fold'] = k
+                experiment_importances.append(fold_importances)
+        else:
+            pred_test = result
 
         experiment_preds += zip(test_idx, gene_names[test_idx], pred_test)
         fold_metrics = metrics.log_metrics(
@@ -88,6 +98,32 @@ def run_experiment(
             neptune_run=neptune_run,
         )
 
+    # Procesar importancias de características si se extrajeron (índice de Gini)
+    # Aplicar el mismo patrón correcto: concat + groupby + media adecuada
+    avg_importances = None
+    if experiment_importances:
+        all_importances = pd.concat(experiment_importances, ignore_index=True)
+        avg_importances = all_importances.groupby('feature')['gini_importance'].mean().reset_index()
+        
+        # ✅ CORRECCIÓN: Normalizar por máximo (no por suma) para evitar valores > 1.0
+        max_importance = avg_importances['gini_importance'].max()
+        if max_importance > 0:
+            # Normalizar a [0, 1] dividiendo por el máximo
+            avg_importances['gini_importance'] = avg_importances['gini_importance'] / max_importance
+        
+        avg_importances = avg_importances.sort_values('gini_importance', ascending=False)
+        
+        # Upload feature importances to Neptune
+        if neptune_run:
+            upload_importances_to_neptune(
+                importances=avg_importances,
+                random_state=random_state,
+                neptune_run=neptune_run,
+            )
+        
+        print(f"Gini-based feature importances extracted for seed {random_state} ({len(avg_importances)} features)")
+        print(f"   Importance range: [{avg_importances['gini_importance'].min():.4f}, {avg_importances['gini_importance'].max():.4f}]")
+
     for metric in experiment_metrics[0].keys():
         avg_val = np.mean([fold_metrics[metric] for fold_metrics in experiment_metrics])
         if neptune_run:
@@ -95,4 +131,4 @@ def run_experiment(
         else:
             print(f"metrics/run_{random_state}/avg/test/{metric}: {avg_val}")
 
-    return experiment_metrics, experiment_preds
+    return experiment_metrics, experiment_preds, avg_importances
