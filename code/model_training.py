@@ -54,6 +54,7 @@ def cv_train_with_params(
             bagging=bagging,
             bagging_n=bagging_n,
             bagging_groups=bagging_groups,
+            return_importances=False,  # Don't return importances in CV
         )
 
         if pu_learning:
@@ -78,7 +79,9 @@ def train_a_model(
     bagging: bool = False,
     bagging_n: float = 0.0,
     bagging_groups: int = 5,
-    max_fastmrmr_retries: int = 8,  
+    max_fastmrmr_retries: int = 8,
+    return_importances: bool = False,  # NEW PARAMETER
+    tracker=None  # NEW: CO2 tracker for separating training/inference
 ):
     if isinstance(x_train, np.ndarray):
         x_train = pd.DataFrame(x_train)
@@ -140,17 +143,33 @@ def train_a_model(
     print(f" Número de características FINAL antes de entrenamiento: {x_train_proc.shape[1]}")
     print("==========================================================\n")
 
+    # === INSTANCE SELECTION (PU LEARNING) ===
     if pu_learning:
+        print("🔬 Aplicando PU Learning para selección de instancias...")
+        # For PU learning, we need to store features and work with indices
+        from code.data_processing2 import store_data_features, get_data_features
+        x_indices = store_data_features(x_train_proc)
+        
+        # Only compute Jaccard measures once per fold (not in experiment.py)
+        # This is now handled here to avoid duplication
         pul.compute_pairwise_jaccard_measures(x_train_proc)
-        x_train_final, y_train_final = pul.select_reliable_negatives(
-            x_train_proc,
+        
+        x_indices_final, y_train_final = pul.select_reliable_negatives(
+            x_indices,
             y_train,
             pu_learning,
             pul_k,
             pul_t,
             random_state=random_state,
         )
+        
+        # Convert indices back to features for training
+        x_train_final = get_data_features(x_indices_final)
+        print(f"   → Muestras tras PU Learning: {len(x_train_final)} (de {len(x_train_proc)} originales)")
+        
+    # === NO PU LEARNING (FAST-MRMR or NO FEATURE SELECTION) ===
     else:
+        print("📊 Usando datos procesados sin selección de instancias...")
         x_train_final = x_train_proc.copy()
         y_train_final = y_train.copy()
 
@@ -158,6 +177,7 @@ def train_a_model(
 
     model = get_model(classifier, random_state=random_state)
 
+    # 🚀 TRAINING PHASE: Model fitting
     if classifier == "CAT":
         model = set_class_weights(model, y_train_final)
         model.fit(x_train_final, y_train_final, verbose=0)
@@ -168,5 +188,30 @@ def train_a_model(
     else:
         model.fit(x_train_final, y_train_final)
 
+    # Separate training from inference for CO2 measurement
+    if tracker:
+        tracker.stop_task("training")
+        tracker.start_task("inference")
+
+    # 🎯 INFERENCE PHASE: Model prediction
     probs = model.predict_proba(x_test_final)[:, 1]
+    
+    if tracker:
+        tracker.stop_task("inference")
+        # Restart training task for next fold (if any)
+        tracker.start_task("training")
+    
+    # Extract Gini-based feature importances if requested
+    # Supported models: BRF, CAT, XGB (ensemble models with feature_importances_)
+    if return_importances:
+        if hasattr(model, 'feature_importances_'):
+            feature_importances = pd.DataFrame({
+                'feature': x_train_final.columns,
+                'gini_importance': model.feature_importances_
+            }).sort_values('gini_importance', ascending=False)
+            return probs, feature_importances
+        else:
+            print(f"Warning: {classifier} model doesn't support feature importances (try BRF, CAT, or XGB)")
+            return probs, None
+    
     return probs

@@ -36,7 +36,11 @@ def read_config() -> argparse.Namespace:
     parser.add_argument("--bagging", action="store_true", help="Activar selección de características con bagging")
     parser.add_argument("--bagging_n", type=parse_percentage, default=0.0, 
                         help="Porcentaje de características por subconjunto de bagging (ej. '5%')")
-    parser.add_argument("--bagging_groups", type=int, default=5, help="Número de grupos disjuntos para bagging") # <---- NUEVO
+    parser.add_argument("--bagging_groups", type=int, default=5, help="Número de grupos disjuntos para bagging")
+
+    # Carbon tracking
+    parser.add_argument("--carbon_tracking", action="store_true", 
+                        help="Activar medición de emisiones CO2 del 10-fold CV (solo proceso Python)")
 
     args = parser.parse_args()
     args = vars(args)

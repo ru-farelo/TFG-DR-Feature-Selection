@@ -1,85 +1,84 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import sys
+import numpy as np
 import os
 
-# Verify command line arguments
-if len(sys.argv) < 2:
-    print("Uso: python script.py <archivo_csv>")
-    sys.exit(1)
+# Data for the three methods across two feature set combinations
+# Convert kg to grams (multiply by 1000) for better visualization
+data = {
+    'Method': ['Original', 'PU Learning', 'Fast-mRMR'],
+    'PathDIP + CAT': [0.00153 * 1000, 0.00396 * 1000, 0.00379 * 1000],  # Convert kg to g
+    'GO + CAT': [0.00128 * 1000, 0.00389 * 1000, 0.00330 * 1000]        # Convert kg to g
+}
 
-# Obtain CSV file path from command line
-csv_filename = sys.argv[1]
-csv_path = os.path.join("csv", os.path.basename(csv_filename))
+# Create a DataFrame from the data
+df = pd.DataFrame(data).set_index('Method')
 
-# Verify if the file exists
-if not os.path.exists(csv_path):
-    print(f"Error: El archivo {csv_path} no existe.")
-    sys.exit(1)
+# Set up the bar chart
+labels = df.columns
+x = np.arange(len(labels))  # The label locations
+width = 0.25  # The width of the bars
 
-# Load the CSV file
-df = pd.read_csv(csv_path, sep=';')
+fig, ax = plt.subplots(figsize=(12, 8))  # Increase figure size for better visibility
 
-# Convert the first column to numeric (assuming it's the percentage of features selected)
-df["fast_mrmr_k"] = df["fast_mrmr_k"].str.replace("%", "").astype(float)
+# Define colors for each method using hexadecimal codes
+colors = {
+    'Original': '#8b6528', # Brown
+    'PU Learning': '#9d69a8', # Purple
+    'Fast-mRMR': '#6495ed' # A not-too-flashy blue
+}
 
-# Calculate differences from the 100% selection row
-reference_row = df[df["fast_mrmr_k"] == 100].iloc[0]
-differences = df.set_index("fast_mrmr_k").drop(100) - reference_row
-differences["fast_mrmr_k"] = differences.index
+# Create the bars for each method
+rects1 = ax.bar(x - width, df.loc['Original'], width, label='Original (non-PU)', color=colors['Original'])
+rects2 = ax.bar(x, df.loc['PU Learning'], width, label='PU Learning', color=colors['PU Learning'])
+rects3 = ax.bar(x + width, df.loc['Fast-mRMR'], width, label='Fast-mRMR (Propuesto)', color=colors['Fast-mRMR'])
 
-# Identify the highest value in each metric (excluding 100%)
-top_values = df.set_index("fast_mrmr_k").drop(100).idxmax()
+# Add labels, title, and other customizations
+ax.set_ylabel('Emisiones (g CO₂e)', fontsize=12)
+ax.set_title('Emisiones de CO₂ por método de aprendizaje', fontsize=14, fontweight='bold')
+ax.set_xticks(x)
+ax.set_xticklabels(labels, fontsize=11)
+ax.legend(fontsize=10)
+ax.grid(axis='y', linestyle='--', alpha=0.6) # Add a horizontal grid for better readability
 
-# Create the figure
-plt.figure(figsize=(12, 6))
+# Set y-axis limits to better show the differences
+ax.set_ylim(0, max(df.max()) * 1.15)
 
-# Dictionary of colors for lines
-colors = plt.get_cmap("tab10").colors  # Predefined colors from matplotlib
+# Function to add value labels on top of the bars
+def add_labels(bars):
+    for bar in bars:
+        height = bar.get_height()
+        ax.annotate(f'{height:.2f}',
+                    xy=(bar.get_x() + bar.get_width() / 2, height),
+                    xytext=(0, 3), # 3 points vertical offset
+                    textcoords="offset points",
+                    ha='center', va='bottom',
+                    fontsize=9, fontweight='bold')
 
-# Plot each metric with its own color
-for i, column in enumerate(df.columns[1:]):  # Exclude the first column (fast_mrmr_k)
-    plt.plot(df["fast_mrmr_k"], df[column], marker='o', label=column, color=colors[i])
-    
-    # Identify and annotate the maximum point
-    max_index = top_values[column]
-    max_value = df.loc[df["fast_mrmr_k"] == max_index, column].values[0]
+# Add labels to all bars
+add_labels(rects1)
+add_labels(rects2)
+add_labels(rects3)
 
-    # Anote the maximum value on the plot
-    plt.annotate(f"{max_value:.3f}", 
-                 (max_index, max_value), 
-                 textcoords="offset points", 
-                 xytext=(0, 5), 
-                 ha='center', 
-                 color=colors[i], 
-                 fontsize=10, 
-                 fontweight="bold")
+fig.tight_layout()
 
-    # Add the 100% values in red for comparison
-    ref_value = reference_row[column]
-    plt.annotate(f"{ref_value:.3f}", 
-                 (100, ref_value), 
-                 textcoords="offset points", 
-                 xytext=(0, 5), 
-                 ha='center', 
-                 color='red', 
-                 fontsize=10, 
-                 fontweight="bold")
-
-# Personalize the plot
-plt.xlabel("Porcentaje de selección de características")
-plt.ylabel("Valor de la métrica")
-plt.title(f"Comparación de métricas - {os.path.basename(csv_filename).replace('.csv', '')}")
-plt.legend()
-plt.grid(True)
-
-# Ajust x-ticks to show percentages
-plt.xticks(df["fast_mrmr_k"], [f"{x}%" for x in df["fast_mrmr_k"]], rotation=90)
-plt.subplots_adjust(bottom=0.2)  # Add space for x-ticks
-
-# Save the plot
-output_dir = "png"
+# Create carbon_img directory if it doesn't exist
+output_dir = os.path.join(os.path.dirname(__file__), '..', 'carbon_img')
 os.makedirs(output_dir, exist_ok=True)
-output_filename = os.path.join(output_dir, f"{os.path.basename(csv_filename).replace('.csv', '')}.png")
-plt.savefig(output_filename, bbox_inches="tight")  # Avoid clipping
-print(f"Plot saved to {output_filename}")
+
+# Save the figure in multiple formats
+output_path_png = os.path.join(output_dir, 'emisiones_co2_comparacion.png')
+output_path_pdf = os.path.join(output_dir, 'emisiones_co2_comparacion.pdf')
+
+plt.savefig(output_path_png, dpi=300, bbox_inches='tight')
+plt.savefig(output_path_pdf, bbox_inches='tight')
+
+print(f"📊 Gráfico guardado en:")
+print(f"   PNG: {output_path_png}")
+print(f"   PDF: {output_path_pdf}")
+print(f"\n📈 Valores mostrados en gramos (g CO₂e) para mejor visualización")
+print(f"   PathDIP + CAT - Original: {data['PathDIP + CAT'][0]:.2f} g")
+print(f"   PathDIP + CAT - PU Learning: {data['PathDIP + CAT'][1]:.2f} g") 
+print(f"   PathDIP + CAT - Fast-mRMR: {data['PathDIP + CAT'][2]:.2f} g")
+
+plt.show()

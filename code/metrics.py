@@ -30,9 +30,12 @@ def recall_at_k(y_true, y_prob, k: int = 10):
       - The recall at k.
 
     """
-
-    sort = y_prob.argsort()[::-1][:k]
-    recall_at_k = np.sum(y_true[sort]) / np.sum(y_true)
+    # Convert to numpy arrays to avoid pandas indexing issues
+    y_true_np = y_true.values if hasattr(y_true, 'values') else y_true
+    y_prob_np = y_prob.values if hasattr(y_prob, 'values') else y_prob
+    
+    sort = y_prob_np.argsort()[::-1][:k]
+    recall_at_k = np.sum(y_true_np[sort]) / np.sum(y_true_np)
 
     return recall_at_k
 
@@ -55,9 +58,12 @@ def precision_at_k(y_true, y_prob, k: int = 10):
       - The precision at k.
 
     """
-
-    sort = y_prob.argsort()[::-1][:k]
-    precision_at_k = np.sum(y_true[sort]) / k
+    # Convert to numpy arrays to avoid pandas indexing issues
+    y_true_np = y_true.values if hasattr(y_true, 'values') else y_true
+    y_prob_np = y_prob.values if hasattr(y_prob, 'values') else y_prob
+    
+    sort = y_prob_np.argsort()[::-1][:k]
+    precision_at_k = np.sum(y_true_np[sort]) / k
 
     return precision_at_k
 
@@ -104,8 +110,10 @@ def log_metrics(
     precisions, recalls, _ = precision_recall_curve(y_true, y_prob)
     test_auc_pr = auc(recalls, precisions)
 
-    # Ranking metrics
-    test_ndcg_at_k = ndcg_score(y_true.reshape(1, -1), y_prob.reshape(1, -1), k=10)
+    # Ranking metrics - Convert to numpy arrays for reshape
+    y_true_np = y_true.values if hasattr(y_true, 'values') else y_true
+    y_prob_np = y_prob.values if hasattr(y_prob, 'values') else y_prob
+    test_ndcg_at_k = ndcg_score(y_true_np.reshape(1, -1), y_prob_np.reshape(1, -1), k=10)
     test_recall_at_k = recall_at_k(y_true, y_prob, k=10)
     test_precision_at_k = precision_at_k(y_true, y_prob, k=10)
 

@@ -91,7 +91,25 @@ Las principales librerías utilizadas incluyen:
 - `pandas`
 - `matplotlib`
 - `neptune`
+- `codecarbon` - Para medición de huella de carbono
 - Otras especificadas en `requirements.txt`
+
+## Medición de Huella de Carbono
+
+El proyecto integra [CodeCarbon](https://github.com/mlco2/codecarbon) para medir automáticamente las emisiones de CO2 durante la ejecución de los experimentos. Esta funcionalidad permite evaluar el impacto ambiental de diferentes configuraciones del pipeline:
+
+- **Sin selección de características**: Medición del coste computacional completo
+- **Con selección de características**: Comparación del ahorro computacional y emisiones
+
+Los resultados se guardan en:
+- `./carbon_emissions/emissions.csv`: Reporte detallado de emisiones
+- Neptune (si está habilitado): Métricas de carbono en `carbon_footprint/`
+
+Ejemplo de salida:
+```
+🌱 Total CO2 emissions: 0.012345 kg CO2
+📊 Detailed report saved in: ./carbon_emissions/emissions.csv
+```
 
 ## Datos
 
