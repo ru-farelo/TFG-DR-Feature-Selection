@@ -1,6 +1,7 @@
 import itertools
 from typing import Literal, Union
 from code.model_training import cv_train_with_params
+import code.carbon_utils as carbon
 
 
 def get_hyperparam_combinations(search_space):
@@ -56,6 +57,9 @@ def grid_search_hyperparams(
     if len(hyperparam_combinations) == 1:
         return {k: v[0] if isinstance(v, list) else v for k, v in search_space.items()}
 
+    # Start measuring hyperparameter tuning as its own phase
+    carbon.start_task("hyperparameter_tuning")
+
     for params in hyperparam_combinations:
         if pu_learning and not validate_PUL_thresholds(
             pu_learning,
@@ -82,11 +86,20 @@ def grid_search_hyperparams(
         if score > best_config["score"]:
             best_config = {"params": params, "score": score}
 
-    # Log or print best parameters
+    # Stop measuring hyperparameter tuning
+    tuning_grams = carbon.end_task("hyperparameter_tuning")
+
+    # Log or print best parameters and upload tuning emissions
     for key, value in best_config["params"].items():
         if neptune_run:
             neptune_run[f"parameters/best_selected/{key}"] = value
         else:
             print(f"parameters/{key}: {value}")
+
+    if neptune_run is not None:
+        try:
+            neptune_run[f"emissions/hyperparameter_tuning/run_{random_state}"] = float(tuning_grams)
+        except Exception:
+            neptune_run[f"emissions/hyperparameter_tuning/run_{random_state}"] = str(tuning_grams)
 
     return best_config["params"]

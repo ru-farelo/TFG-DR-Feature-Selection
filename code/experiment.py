@@ -7,6 +7,7 @@ from code.model_training import train_a_model
 from code.data_processing import load_data
 from code.hyperparameter_tuning import grid_search_hyperparams
 from code.neptune_utils import upload_preds_to_neptune, upload_importances_to_neptune
+from code.neptune_utils import upload_emissions_to_neptune
 import code.metrics as metrics
 
 
@@ -34,14 +35,15 @@ def run_experiment(
 
     outer_cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=random_state)
     experiment_preds, experiment_metrics, experiment_importances = [], [], []
+    experiment_emissions_list = []
 
     for k, (train_idx, test_idx) in enumerate(outer_cv.split(x, y)):
         print(f"\n===== Fold {k} =====")
         x_train, x_test = x.iloc[train_idx], x.iloc[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
 
-        print(f"🔍 x_train.shape antes de selección: {x_train.shape}")
-        print(f"🔍 y_train distribución: {np.bincount(y_train)}")
+        print(f"x_train.shape antes de selección: {x_train.shape}")
+        print(f"y_train distribución: {np.bincount(y_train)}")
 
         best_params = grid_search_hyperparams(
             x_train,
@@ -76,12 +78,16 @@ def run_experiment(
         )
         
         if extract_importances:
-            pred_test, fold_importances = result
+            pred_test, fold_importances, fold_emissions = result
             if fold_importances is not None:
                 fold_importances['fold'] = k
                 experiment_importances.append(fold_importances)
         else:
-            pred_test = result
+            pred_test, fold_emissions = result
+
+        # Collect emissions for aggregation (no subir por fold, solo al final)
+        if isinstance(fold_emissions, dict):
+            experiment_emissions_list.append(fold_emissions)
 
         experiment_preds += zip(test_idx, gene_names[test_idx], pred_test)
         fold_metrics = metrics.log_metrics(
@@ -105,7 +111,7 @@ def run_experiment(
         all_importances = pd.concat(experiment_importances, ignore_index=True)
         avg_importances = all_importances.groupby('feature')['gini_importance'].mean().reset_index()
         
-        # ✅ CORRECCIÓN: Normalizar por máximo (no por suma) para evitar valores > 1.0
+        # Normalizar por máximo (no por suma) para evitar valores > 1.0
         max_importance = avg_importances['gini_importance'].max()
         if max_importance > 0:
             # Normalizar a [0, 1] dividiendo por el máximo
@@ -131,4 +137,26 @@ def run_experiment(
         else:
             print(f"metrics/run_{random_state}/avg/test/{metric}: {avg_val}")
 
-    return experiment_metrics, experiment_preds, avg_importances
+    # Aggregate emissions across folds if available
+    emissions_summary = None
+    if experiment_emissions_list:
+        # phases union
+        phases = set().union(*[set(d.keys()) for d in experiment_emissions_list])
+        per_phase_vals = {p: [] for p in phases}
+        for d in experiment_emissions_list:
+            for p in phases:
+                per_phase_vals[p].append(float(d.get(p, 0.0)))
+
+        emissions_summary = {
+            p: {"avg_g": float(np.mean(vals)), "total_g": float(np.sum(vals))}
+            for p, vals in per_phase_vals.items()
+        }
+
+        # Upload SOLO el agregado por run (no por fold)
+        if neptune_run:
+            for p, stats in emissions_summary.items():
+                neptune_run[f"emissions/run_{random_state}/{p}/avg_g"] = stats["avg_g"]
+                neptune_run[f"emissions/run_{random_state}/{p}/total_g"] = stats["total_g"]
+
+    return experiment_metrics, experiment_preds, avg_importances, emissions_summary
+    

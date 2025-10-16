@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from code.models import get_model, set_class_weights
+import code.carbon_utils as carbon
 from sklearn.metrics import f1_score
 from imblearn.metrics import geometric_mean_score
 import code.pu_learning as pul
@@ -36,6 +37,11 @@ def cv_train_with_params(
     if isinstance(y_train, np.ndarray):
         y_train = pd.Series(y_train)
 
+    # Disable carbon tracking temporarily for inner CV loops
+    # This avoids overhead during hyperparameter search
+    original_tracking_state = carbon.is_tracking_enabled()
+    carbon.set_tracking_enabled(False)
+
     for _, (learn_idx, val_idx) in enumerate(inner_skf.split(x_train, y_train)):
         x_learn, x_val = x_train.iloc[learn_idx], x_train.iloc[val_idx]
         y_learn, y_val = y_train.iloc[learn_idx], y_train.iloc[val_idx]
@@ -56,10 +62,17 @@ def cv_train_with_params(
             bagging_groups=bagging_groups,
         )
 
+        # train_a_model now returns (probs, emissions) for non-return_importances calls
+        if isinstance(pred_val, tuple) or isinstance(pred_val, list):
+            pred_val = pred_val[0]
+
         if pu_learning:
             score.append(f1_score(y_val, pred_val > 0.5))
         else:
             score.append(geometric_mean_score(y_val, pred_val > 0.5))
+
+    # Restore original tracking state
+    carbon.set_tracking_enabled(original_tracking_state)
 
     return np.mean(score)
 
@@ -91,12 +104,17 @@ def train_a_model(
     x_train_proc = x_train.copy()
     x_test_proc = x_test.copy()
 
+    emissions_this_fold = {}
+
     # Bagging disjunto
     if bagging:
+        phase = "bagging"
+        carbon.start_task(phase)
         print(f" Bagging disjunto ACTIVADO (n_grupos={bagging_groups}, porcentaje={bagging_n}%)")
         x_train_proc, x_test_proc = bagging_feature_selection_disjoint(
             x_train_proc, x_test_proc, n_groups=bagging_groups, percentage=bagging_n, seed=random_state
         )
+        emissions_this_fold[phase] = carbon.end_task(phase)
         print(f"   → Características tras BAGGING: {x_train_proc.shape[1]}")
         print(f"   → Nombres de las primeras 10 columnas: {list(x_train_proc.columns[:10])}")
 
@@ -111,6 +129,8 @@ def train_a_model(
             fast_mrmr_k = int(fast_mrmr_k)
 
         # Try Fast-MRMR up to max_fastmrmr_retries times
+        phase = "fast_mrmr"
+        carbon.start_task(phase)
         for retry in range(max_fastmrmr_retries):
             seed_try = random_state + retry
             x_train_proc_tmp, x_test_proc_tmp = execute_fast_mrmr_pipeline(
@@ -133,8 +153,9 @@ def train_a_model(
             print(" [AVISO]: Fast-MRMR no ha seleccionado ninguna feature tras varios intentos. No se puede entrenar el modelo en este fold.")
             print(" [DEBUG] Tamaño de x_train_proc:", x_train_proc_tmp.shape)
             print(" [DEBUG] Saliendo de train_a_model con array vacío.\n")
+            emissions_this_fold[phase] = carbon.end_task(phase)
             return np.zeros(len(x_test_proc))  
-
+        emissions_this_fold[phase] = carbon.end_task(phase)
         print(f"   → Características tras FAST-MRMR: {x_train_proc.shape[1]}")
         print(f"   → Nombres de las primeras 10 columnas: {list(x_train_proc.columns[:10])}")
 
@@ -142,6 +163,8 @@ def train_a_model(
     print("==========================================================\n")
 
     if pu_learning:
+        phase = "pu_preprocessing"
+        carbon.start_task(phase)
         pul.compute_pairwise_jaccard_measures(x_train_proc)
         x_train_final, y_train_final = pul.select_reliable_negatives(
             x_train_proc,
@@ -151,12 +174,16 @@ def train_a_model(
             pul_t,
             random_state=random_state,
         )
+        emissions_this_fold[phase] = carbon.end_task(phase)
     else:
         x_train_final = x_train_proc.copy()
         y_train_final = y_train.copy()
 
     x_test_final = x_test_proc.copy()
 
+    # Model creation and training
+    phase = "training"
+    carbon.start_task(phase)
     model = get_model(classifier, random_state=random_state)
 
     if classifier == "CAT":
@@ -169,7 +196,13 @@ def train_a_model(
     else:
         model.fit(x_train_final, y_train_final)
 
+    emissions_this_fold[phase] = carbon.end_task(phase)
+
+    # Inference
+    phase_inf = "inference"
+    carbon.start_task(phase_inf)
     probs = model.predict_proba(x_test_final)[:, 1]
+    emissions_this_fold[phase_inf] = carbon.end_task(phase_inf)
     
     # Extraer importancias de características usando índice de Gini si se solicita
     if return_importances:
@@ -179,9 +212,9 @@ def train_a_model(
                 'feature': x_train_final.columns,
                 'gini_importance': model.feature_importances_
             })
-            return probs, feature_importances
+            return probs, feature_importances, emissions_this_fold
         else:
             print(f"Warning: {classifier} model doesn't support feature importances (try BRF, CAT, or XGB)")
-            return probs, None
+            return probs, None, emissions_this_fold
     
-    return probs
+    return probs, emissions_this_fold

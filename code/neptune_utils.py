@@ -48,7 +48,7 @@ def upload_importances_to_neptune(
     """
     importances_copy = importances.copy()
     
-    # ✅ NORMALIZAR importancias por MÁXIMO (como en código original), NO por suma
+    # Normalizar importancias por MÁXIMO (no por suma)
     max_importance = importances_copy['gini_importance'].max()
     if max_importance > 0:
         importances_copy['gini_importance'] = importances_copy['gini_importance'] / max_importance
@@ -57,3 +57,24 @@ def upload_importances_to_neptune(
     importances_sorted.to_csv("importances_temp.csv", index=False)
     neptune_run[f"feature_importances/run_{random_state}"].upload("importances_temp.csv")
     
+
+def upload_emissions_to_neptune(
+    emissions_per_phase: dict = None,
+    random_state: Union[int, None] = None,
+    neptune_run: neptune.Run = None,
+):
+    """Upload emissions (in grams) per pipeline phase to Neptune.
+
+    emissions_per_phase: dict mapping phase_name -> grams (float)
+    """
+    if emissions_per_phase is None or neptune_run is None:
+        return
+
+    for phase, grams in emissions_per_phase.items():
+        # Store as a numeric metric under a clear namespace
+        key = f"emissions/run_{random_state}/{phase}"
+        try:
+            neptune_run[key] = float(grams)
+        except Exception:
+            # Fallback to string representation if direct assignment fails
+            neptune_run[key] = str(grams)
