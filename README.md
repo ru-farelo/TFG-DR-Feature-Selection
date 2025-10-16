@@ -107,8 +107,8 @@ Los resultados se guardan en:
 
 Ejemplo de salida:
 ```
-🌱 Total CO2 emissions: 0.012345 kg CO2
-📊 Detailed report saved in: ./carbon_emissions/emissions.csv
+Total CO2 emissions: 0.012345 kg CO2
+Detailed report saved in: ./carbon_emissions/emissions.csv
 ```
 
 ## Datos

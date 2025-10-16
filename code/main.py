@@ -5,6 +5,7 @@ import pandas as pd
 from code.config import read_config
 from code.experiment import run_experiment
 import code.carbon_utils as carbon
+from code.pu_learning import clear_distance_cache, get_cache_info
 
 if __name__ == "__main__":
 
@@ -65,6 +66,13 @@ if __name__ == "__main__":
         # Collect emissions from this run
         if run_emissions is not None:
             run_emissions_list.append(run_emissions)
+        
+        # Clear PU Learning distance cache after each seed to free memory
+        if args["pu_learning"]:
+            cache_info = get_cache_info()
+            if cache_info["cached_datasets"] > 0:
+                print(f"Clearing PU distance cache ({cache_info['cached_datasets']} entries)...")
+                clear_distance_cache()
 
     for metric in run_metrics_list[0][0].keys():
         avg = np.mean([np.mean([fold[metric] for fold in run_metrics]) for run_metrics in run_metrics_list])

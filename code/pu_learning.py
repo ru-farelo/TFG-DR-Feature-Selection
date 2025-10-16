@@ -1,17 +1,66 @@
 from typing import Literal, Union
 import numpy as np
 import pandas as pd
+import hashlib
 from code.models import get_model, set_class_weights
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import pairwise_distances
 
+# Cache global para distancias de Jaccard
+_distance_cache = {}
 distances = None
 
+def _compute_dataset_hash(x):
+    """Compute a hash of the dataset to use as cache key."""
+    x_array = x.to_numpy().astype(bool)
+    # Use shape and a sample of values to create a lightweight hash
+    shape_str = f"{x_array.shape[0]}x{x_array.shape[1]}"
+    # Sample some values to ensure we're caching the right dataset
+    sample_indices = np.linspace(0, x_array.size - 1, min(1000, x_array.size), dtype=int)
+    sample_values = x_array.flat[sample_indices].tobytes()
+    hash_input = shape_str.encode() + sample_values
+    return hashlib.md5(hash_input).hexdigest()
+
 def compute_pairwise_jaccard_measures(x):
-    global distances
-    x = x.to_numpy().astype(bool)
-    distances = pairwise_distances(x, metric="jaccard")
+    """
+    Compute pairwise Jaccard distances with intelligent caching.
+    Cache is based on dataset content hash to avoid redundant calculations.
+    """
+    global distances, _distance_cache
+    
+    # Compute hash of the dataset
+    dataset_hash = _compute_dataset_hash(x)
+    
+    # Check if we already computed distances for this dataset
+    if dataset_hash in _distance_cache:
+        distances = _distance_cache[dataset_hash]
+        print(f"  Using cached Jaccard distances (hash: {dataset_hash[:8]}...)")
+        return
+    
+    # Compute distances (expensive operation)
+    print(f"  Computing Jaccard distances for {x.shape[0]} samples × {x.shape[1]} features...")
+    x_array = x.to_numpy().astype(bool)
+    distances = pairwise_distances(x_array, metric="jaccard")
     distances[np.diag_indices_from(distances)] = np.nan
+    
+    # Store in cache
+    _distance_cache[dataset_hash] = distances
+    print(f"  Distances cached (hash: {dataset_hash[:8]}...)")
+
+
+def clear_distance_cache():
+    """Clear the distance cache. Useful between different experiments/datasets."""
+    global _distance_cache
+    _distance_cache.clear()
+
+
+def get_cache_info():
+    """Get information about the current cache state."""
+    global _distance_cache
+    return {
+        "cached_datasets": len(_distance_cache),
+        "cache_keys": list(_distance_cache.keys())
+    }
 
 
 def select_reliable_negatives(
