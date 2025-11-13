@@ -65,6 +65,6 @@ plt.text(genes_markers[2] * 1.1, y_min * 1.5, 'Human genome (approx.)', rotation
 
 plt.legend(title='Method', fontsize=10)
 plt.tight_layout()
-plt.savefig('sustainability_analysis_final.png', dpi=300, bbox_inches='tight')
+plt.savefig('.\carbon_img\sustainability_analysis_final.png', dpi=300, bbox_inches='tight')
 
-print("Gráfico 'sustainability_analysis_final.png' guardado con éxito.")
+print("Gráfico '.\carbon_img\sustainability_analysis_final.png' guardado con éxito.")
