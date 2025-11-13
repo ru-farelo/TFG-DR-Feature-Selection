@@ -1,0 +1,16 @@
+Configuration,Method,Training,Inference,PU_Processing,Fast-mRMR_Processing
+GO (Individual),Original,7.17,0.39,0,0
+GO (Individual),PU Learning,5.54,0.35,15.46,0
+GO (Individual),Fast-mRMR,0.43,0.02,0,8.70
+PathDIP (Individual),Original,3.58,0.09,0,0
+PathDIP (Individual),PU Learning,3.54,0.09,1.98,0
+PathDIP (Individual),Fast-mRMR,0.83,0.03,0,7.59
+GO (Intersection),Original,6.26,0.35,0,0
+GO (Intersection),PU Learning,5.41,0.35,11.5,0
+GO (Intersection),Fast-mRMR,0.33,0.01,0,6.33
+PathDIP (Intersection),Original,3.52,0.09,0,0
+PathDIP (Intersection),PU Learning,3.11,0.092,1.78,0
+PathDIP (Intersection),Fast-mRMR,0.83,0.04,0,7.61
+GO+PathDIP (Combined),Original,4.20,0.24,0,0
+GO+PathDIP (Combined),PU Learning,7.04,0.45,14.12,0
+GO+PathDIP (Combined),Fast-mRMR,0.62,0.68,0,12.69
